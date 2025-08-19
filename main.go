@@ -35,7 +35,7 @@ func browseHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := io.ReadAll(io.LimitReader(r.Body, 10<<20))
+	body, err := io.ReadAll(io.LimitReader(r.Body, 8192))
 	if err != nil {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		log.Printf("%v\t%d\t%s\t%s\n", err, http.StatusInternalServerError, r.RemoteAddr, "")
@@ -72,7 +72,7 @@ func clipHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := io.ReadAll(io.LimitReader(r.Body, 10<<20))
+	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
 	if err != nil {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		log.Printf("%v\t%d\t%s\t%s\n", err, http.StatusInternalServerError, r.RemoteAddr, "")
