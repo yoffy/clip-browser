@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os/exec"
@@ -17,7 +18,7 @@ var addr = flag.String("addr", ":8080", "Address the listening interface.")
 func main() {
 	flag.Parse()
 
-	http.HandleFunc("/open", openHandler)
+	http.HandleFunc("/browse", browseHandler)
 	http.HandleFunc("/clip", clipHandler)
 
 	log.Printf("Listening %s\n", *addr)
@@ -28,49 +29,71 @@ func main() {
 }
 
 // URLを開くハンドラ
-func openHandler(w http.ResponseWriter, r *http.Request) {
-	url := r.URL.Query().Get("url")
-	if url == "" {
-		http.Error(w, "bad request", http.StatusBadRequest)
-		log.Printf("empty url\t%d\t%s\t%s\n", http.StatusBadRequest, r.RemoteAddr, r.URL)
+func browseHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
+	body, err := io.ReadAll(io.LimitReader(r.Body, 10<<20))
+	if err != nil {
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		log.Printf("%v\t%d\t%s\t%s\n", err, http.StatusInternalServerError, r.RemoteAddr, "")
+		return
+	}
+	if len(body) == 0 {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		log.Printf("empty url\t%d\t%s\t%s\n", http.StatusBadRequest, r.RemoteAddr, "")
+		return
+	}
+
+	url := string(body)
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 		http.Error(w, "bad request", http.StatusBadRequest)
-		log.Printf("bad request\t%d\t%s\t%s\n", http.StatusBadRequest, r.RemoteAddr, r.URL)
+		log.Printf("bad request\t%d\t%s\t%s\n", http.StatusBadRequest, r.RemoteAddr, url)
 		return
 	}
 
-	err := openURL(url)
+	err = openURL(url)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("%v", err), http.StatusInternalServerError)
-		log.Printf("%v\t%d\t%s\t%s\n", err, http.StatusInternalServerError, r.RemoteAddr, r.URL)
+		log.Printf("%v\t%d\t%s\t%s\n", err, http.StatusInternalServerError, r.RemoteAddr, url)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-	log.Printf("open\t%d\t%s\t%s\n", http.StatusOK, r.RemoteAddr, r.URL)
+	log.Printf("browse\t%d\t%s\t%s\n", http.StatusOK, r.RemoteAddr, url)
 }
 
 // クリップボードに文字列をコピーするハンドラ
 func clipHandler(w http.ResponseWriter, r *http.Request) {
-	text := r.URL.Query().Get("text")
-	if text == "" {
-		http.Error(w, "bad request", http.StatusBadRequest)
-		log.Printf("empty text\t%d\t%s\t%s\n", http.StatusBadRequest, r.RemoteAddr, r.URL)
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	err := clipboard.WriteAll(text)
+	body, err := io.ReadAll(io.LimitReader(r.Body, 10<<20))
+	if err != nil {
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		log.Printf("%v\t%d\t%s\t%s\n", err, http.StatusInternalServerError, r.RemoteAddr, "")
+		return
+	}
+	if len(body) == 0 {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		log.Printf("empty text\t%d\t%s\t%s\n", http.StatusBadRequest, r.RemoteAddr, "")
+		return
+	}
+
+	text := string(body)
+	err = clipboard.WriteAll(text)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("%v", err), http.StatusInternalServerError)
-		log.Printf("%v\t%d\t%s\t%s\n", err, http.StatusInternalServerError, r.RemoteAddr, r.URL)
+		log.Printf("%v\t%d\t%s\t%s\n", err, http.StatusInternalServerError, r.RemoteAddr, text)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-	log.Printf("clip\t%d\t%s\t%s\n", http.StatusOK, r.RemoteAddr, r.URL)
+	log.Printf("clip\t%d\t%s\t%s\n", http.StatusOK, r.RemoteAddr, text)
 }
 
 // OSごとにブラウザを開く
