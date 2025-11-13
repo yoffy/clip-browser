@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
-set -eu
+set -eu -o pipefail
 
-curl -sf -X POST -d "$1" "localhost:8080/browse"
+CB_PORT=8080
+HOSTADDR=localhost
+
+## host OS addr of WSL (networkingMode=NAT)
+#HOSTADDR=$(ip route show | grep -i default | awk '{ print $3 }')
+
+curl -sf -X POST -d "$1" "${HOSTADDR}:${CB_PORT}/browse"

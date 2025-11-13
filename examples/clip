@@ -1,5 +1,17 @@
 #!/usr/bin/env bash
 
-set -eu
+set -eu -o pipefail
 
-curl -sf -X POST -d "$1" "localhost:8080/clip"
+CB_PORT=8080
+HOSTADDR=localhost
+
+## host OS addr of WSL (networkingMode=NAT)
+#HOSTADDR=$(ip route show | grep -i default | awk '{ print $3 }')
+
+if [[ -t 0 ]]; then
+	## stdin is not piped
+	curl -sf -X POST --data-binary "$1" "${HOSTADDR}:${CB_PORT}/clip"
+else
+	## stdin is piped
+	curl -sf -X POST --data-binary @- "${HOSTADDR}:${CB_PORT}/clip"
+fi
